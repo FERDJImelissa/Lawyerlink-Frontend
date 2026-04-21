@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     email: '', password: '', name: '',
     lawyerSpecialId: '', speciality: 'General Practice',
+    yearsOfExperience: '',
   })
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -40,7 +41,8 @@ export default function RegisterPage() {
                 role, 
                 name: form.name || user.email.split('@')[0],
                 speciality: form.speciality,
-                lawyer_special_id: form.lawyerSpecialId 
+                lawyer_special_id: form.lawyerSpecialId,
+                years_of_experience: form.yearsOfExperience
             }
             localStorage.setItem('ll_profile', JSON.stringify(newProfile))
             window.location.reload() // Refresh to update context
@@ -54,6 +56,7 @@ export default function RegisterPage() {
     if (form.password.length < 6) return toast.error('Password must be at least 6 characters')
     if (role === 'lawyer' && !form.lawyerSpecialId) return toast.error('Lawyer ID is required')
     if (role === 'lawyer' && !form.name) return toast.error('Full name is required')
+    if (role === 'lawyer' && !form.yearsOfExperience) return toast.error('Years of experience is required')
 
     setLoading(true)
     try {
@@ -101,10 +104,13 @@ export default function RegisterPage() {
             {role === 'lawyer' && (
               <>
                 <input type="text" value={form.name} onChange={set('name')} placeholder="Full Name" className="input-field" />
-                <select value={form.speciality} onChange={set('speciality')} className="input-field">
-                  {SPECIALITIES.map(s => <option key={s}>{s}</option>)}
-                </select>
-                <input type="text" value={form.lawyerSpecialId} onChange={set('lawyerSpecialId')} placeholder="Lawyer ID" className="input-field" />
+                <div className="grid grid-cols-2 gap-3">
+                  <select value={form.speciality} onChange={set('speciality')} className="input-field">
+                    {SPECIALITIES.map(s => <option key={s}>{s}</option>)}
+                  </select>
+                  <input type="number" min="0" value={form.yearsOfExperience} onChange={set('yearsOfExperience')} placeholder="Years Exp." className="input-field" />
+                </div>
+                <input type="text" value={form.lawyerSpecialId} onChange={set('lawyerSpecialId')} placeholder="Lawyer ID / Bar Number" className="input-field" />
               </>
             )}
 

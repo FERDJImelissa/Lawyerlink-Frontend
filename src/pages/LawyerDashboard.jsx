@@ -51,9 +51,16 @@ export default function LawyerDashboard() {
               Frontend-only demonstration dashboard
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-2 bg-navy-800 text-white px-4 py-2 rounded-xl text-sm font-medium">
-            <Scale size={15} />
-            {profile?.speciality || 'General Practice'}
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <div className="flex items-center gap-2 bg-navy-800 text-white px-4 py-2 rounded-xl text-sm font-medium">
+              <Scale size={15} />
+              {profile?.speciality || 'General Practice'}
+            </div>
+            {profile?.years_of_experience && (
+              <div className="bg-white border-2 border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">
+                {profile.years_of_experience} ans d'expérience
+              </div>
+            )}
           </div>
         </div>
 

@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }, [])
 
-  async function signUp({ email, role, name, speciality, lawyerSpecialId }) {
+  async function signUp({ email, role, name, speciality, lawyerSpecialId, yearsOfExperience }) {
     const newUser = { id: `user-${Date.now()}`, email }
     const newProfile = { 
       id: newUser.id, 
@@ -27,7 +27,8 @@ export function AuthProvider({ children }) {
       role, 
       name: name || email.split('@')[0],
       speciality,
-      lawyer_special_id: lawyerSpecialId
+      lawyer_special_id: lawyerSpecialId,
+      years_of_experience: yearsOfExperience
     }
 
     setUser(newUser)
