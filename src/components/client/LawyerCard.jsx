@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Briefcase, Scale, ArrowRight, Star } from 'lucide-react'
+import { Briefcase, ArrowRight, Star } from 'lucide-react'
 
 const SPECIALTY_COLORS = {
   'Criminal Law': 'bg-red-50 text-red-700',
@@ -14,12 +14,10 @@ const SPECIALTY_COLORS = {
   'General Practice': 'bg-indigo-50 text-indigo-700',
 }
 
-const AVATARS = ['⚖️', '🏛️', '📋', '🔏', '🗂️', '📜']
-
 export default function LawyerCard({ lawyer, onSelect }) {
   const [hovered, setHovered] = useState(false)
   const initial = lawyer.name?.charAt(0)?.toUpperCase() || 'L'
-  const colorClass = SPECIALTY_COLORS[lawyer.speciality] || 'bg-indigo-50 text-indigo-700'
+  const colorClass = SPECIALTY_COLORS[lawyer.specialty] || 'bg-indigo-50 text-indigo-700'
 
   return (
     <div
@@ -36,7 +34,7 @@ export default function LawyerCard({ lawyer, onSelect }) {
           <h3 className="font-semibold text-slate-900 truncate">{lawyer.name}</h3>
           <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full mt-1 ${colorClass}`}>
             <Briefcase size={10} />
-            {lawyer.speciality}
+            {lawyer.specialty}
           </span>
         </div>
         <div className="flex items-center gap-1 text-amber-400">
@@ -48,7 +46,7 @@ export default function LawyerCard({ lawyer, onSelect }) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-slate-50 rounded-xl p-3 text-center">
-          <p className="text-lg font-bold text-navy-800">12+</p>
+          <p className="text-lg font-bold text-navy-800">{lawyer.experience_years || '5'}+</p>
           <p className="text-xs text-slate-500">Years exp.</p>
         </div>
         <div className="bg-slate-50 rounded-xl p-3 text-center">

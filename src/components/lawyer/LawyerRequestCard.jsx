@@ -3,35 +3,39 @@ import { FileText, ExternalLink, Check, X, Calendar, Clock, Loader } from 'lucid
 import StatusBadge from '../ui/StatusBadge'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import supabase from '../../lib/supabase'
 
 export default function LawyerRequestCard({ request, onUpdate }) {
   const [loading, setLoading] = useState(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
-  const [rdvDate, setRdvDate] = useState('')
+  const [appointmentDate, setAppointmentDate] = useState('')
 
   async function handleAction(action) {
     setLoading(action)
     
-    setTimeout(() => {
-      const saved = JSON.parse(localStorage.getItem('ll_mock_requests') || '[]')
-      const updated = saved.map(r => {
-        if (r.id === request.id) {
-          return { ...r, status: action, rdv_date: action === 'accepted' ? rdvDate : null }
-        }
-        return r
-      })
+    try {
+      const { error } = await supabase
+        .from('consultations')
+        .update({ 
+          status: action, 
+          appointment_date: action === 'accepted' ? (appointmentDate || new Date().toISOString()) : null 
+        })
+        .eq('id', request.id)
 
-      localStorage.setItem('ll_mock_requests', JSON.stringify(updated))
+      if (error) throw error
       
-      toast.success(`Request ${action}! (Updated in LocalStorage)`)
-      setLoading(null)
+      toast.success(`Request ${action}!`)
       setShowDatePicker(false)
       onUpdate?.()
-    }, 800)
+    } catch (error) {
+      console.error('Error updating request:', error.message)
+      toast.error('Update failed: ' + error.message)
+    } finally {
+      setLoading(null)
+    }
   }
 
-  const clientEmail = request.clientInfo?.email || 'client@demo.com'
-  const clientName = clientEmail.split('@')[0]
+  const clientName = request.profiles?.full_name || 'Anonymous Client'
 
   return (
     <div className="card p-5 animate-fade-in space-y-4">
@@ -42,7 +46,7 @@ export default function LawyerRequestCard({ request, onUpdate }) {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900 capitalize">{clientName}</p>
-            <p className="text-xs text-slate-400">{clientEmail}</p>
+            <p className="text-xs text-slate-400">Client</p>
           </div>
         </div>
         <StatusBadge status={request.status} />
@@ -50,44 +54,58 @@ export default function LawyerRequestCard({ request, onUpdate }) {
 
       <div className="flex items-center gap-1.5 text-xs text-slate-400">
         <Clock size={11} />
-        {format(new Date(request.created_at), 'MMM d, yyyy')}
+        {format(new Date(request.consultation_date), 'MMM d, yyyy')}
       </div>
 
       <div className="bg-slate-50 rounded-xl p-4">
         <p className="text-sm text-slate-700 leading-relaxed">{request.description}</p>
       </div>
 
-      {request.status === 'accepted' && request.rdv_date && (
+      {request.evidence_url && (
+        <a
+          href={request.evidence_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 font-medium bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <FileText size={12} />
+          View Evidence File
+          <ExternalLink size={11} />
+        </a>
+      )}
+
+      {request.status === 'accepted' && request.appointment_date && (
         <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 px-4 py-2.5 rounded-xl border border-emerald-200">
           <Calendar size={14} />
-          <span className="font-medium">Appointment: {format(new Date(request.rdv_date), 'MMM d, yyyy · h:mm a')}</span>
+          <span className="font-medium">Appointment: {format(new Date(request.appointment_date), 'MMM d, yyyy · h:mm a')}</span>
         </div>
       )}
 
       {request.status === 'pending' && (
         <div className="pt-1 space-y-3">
           <div className="flex gap-2">
-            <button onClick={() => setShowDatePicker(true)} className="flex-1 btn-success justify-center">
+            <button onClick={() => setShowDatePicker(true)} className="flex-1 btn-success justify-center" disabled={loading}>
               <Check size={14} /> Accept
             </button>
-            <button onClick={() => handleAction('rejected')} className="flex-1 btn-danger justify-center">
+            <button onClick={() => handleAction('rejected')} className="flex-1 btn-danger justify-center" disabled={loading}>
               <X size={14} /> Reject
             </button>
           </div>
 
           {showDatePicker && (
             <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Set Appointment Date</label>
               <input
                 type="datetime-local"
-                value={rdvDate}
-                onChange={e => setRdvDate(e.target.value)}
+                value={appointmentDate}
+                onChange={e => setAppointmentDate(e.target.value)}
                 className="input-field text-sm"
               />
               <div className="flex gap-2">
-                <button onClick={() => handleAction('accepted')} className="flex-1 btn-success justify-center text-xs">
-                  Confirm & Accept
+                <button onClick={() => handleAction('accepted')} className="flex-1 btn-success justify-center text-xs" disabled={loading}>
+                  {loading === 'accepted' ? <Loader size={12} className="animate-spin" /> : 'Confirm & Accept'}
                 </button>
-                <button onClick={() => setShowDatePicker(false)} className="btn-secondary text-xs px-3">Cancel</button>
+                <button onClick={() => setShowDatePicker(false)} className="btn-secondary text-xs px-3" disabled={loading}>Cancel</button>
               </div>
             </div>
           )}

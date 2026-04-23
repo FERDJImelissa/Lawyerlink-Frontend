@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns'
 export default function Navbar() {
   const { user, profile, signOut } = useAuth()
   const [notifications, setNotifications] = useState([
-    { id: 1, message: 'Welcome to LawyerLink! This is a frontend demo.', created_at: new Date().toISOString(), read: false }
+    { id: 1, message: 'Welcome to Avocat-Link! Your premium legal portal is ready.', created_at: new Date().toISOString(), read: false }
   ])
   const [notifOpen, setNotifOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -37,7 +37,7 @@ export default function Navbar() {
             <div className="w-9 h-9 rounded-xl bg-navy-800 flex items-center justify-center shadow-sm group-hover:bg-navy-700 transition-colors">
               <Scale size={18} className="text-white" />
             </div>
-            <span className="font-display font-bold text-navy-800 text-lg tracking-tight">LawyerLink</span>
+            <span className="font-display font-bold text-navy-800 text-lg tracking-tight">Avocat-Link</span>
           </Link>
 
           <div className="flex items-center gap-2">

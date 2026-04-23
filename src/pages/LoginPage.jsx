@@ -42,7 +42,7 @@ export default function LoginPage() {
               <Scale size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-navy-800 text-xl tracking-tight">LawyerLink</h1>
+              <h1 className="font-display font-bold text-navy-800 text-xl tracking-tight">Avocat-Link</h1>
               <p className="text-xs text-slate-400">Legal expertise, simplified</p>
             </div>
           </div>

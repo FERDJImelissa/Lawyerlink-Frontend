@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import supabase from '../lib/supabase'
 
 const AuthContext = createContext({})
 
@@ -8,62 +9,80 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Load simulated session from localStorage
-    const savedUser = localStorage.getItem('ll_user')
-    const savedProfile = localStorage.getItem('ll_profile')
-    
-    if (savedUser && savedProfile) {
-      setUser(JSON.parse(savedUser))
-      setProfile(JSON.parse(savedProfile))
-    }
-    setLoading(false)
+    // Check active sessions and sets up the listener
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setLoading(false)
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setProfile(null)
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  async function signUp({ email, role, name, speciality, lawyerSpecialId, yearsOfExperience }) {
-    const newUser = { id: `user-${Date.now()}`, email }
-    const newProfile = { 
-      id: newUser.id, 
-      email, 
-      role, 
-      name: name || email.split('@')[0],
-      speciality,
-      lawyer_special_id: lawyerSpecialId,
-      years_of_experience: yearsOfExperience
+  async function fetchProfile(uid) {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', uid)
+        .single()
+
+      if (error && error.code !== 'PGRST116') throw error
+      setProfile(data)
+    } catch (error) {
+      console.error('Error fetching profile:', error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function signUp({ email, password, full_name, role = 'client' }) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+
+    if (error) throw error
+
+    if (data.user) {
+      // Create profile entry
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{ id: data.user.id, full_name, role }])
+
+      if (profileError) throw profileError
     }
 
-    setUser(newUser)
-    setProfile(newProfile)
-    
-    localStorage.setItem('ll_user', JSON.stringify(newUser))
-    localStorage.setItem('ll_profile', JSON.stringify(newProfile))
-    return { user: newUser }
+    return data
   }
 
   async function signIn({ email, password }) {
-    // In pure frontend mode, any login works!
-    const role = email.includes('lawyer') ? 'lawyer' : 'client'
-    const newUser = { id: `user-${Date.now()}`, email }
-    const newProfile = { 
-      id: newUser.id, 
-      email, 
-      role,
-      name: email.split('@')[0],
-      speciality: 'General Practice'
-    }
-
-    setUser(newUser)
-    setProfile(newProfile)
-    
-    localStorage.setItem('ll_user', JSON.stringify(newUser))
-    localStorage.setItem('ll_profile', JSON.stringify(newProfile))
-    return { user: newUser }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    if (error) throw error
+    return data
   }
 
   async function signOut() {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
     setUser(null)
     setProfile(null)
-    localStorage.removeItem('ll_user')
-    localStorage.removeItem('ll_profile')
   }
 
   return (

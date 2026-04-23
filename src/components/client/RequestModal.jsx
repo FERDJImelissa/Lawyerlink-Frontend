@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
-import { X, Upload, FileText, Loader, Send, Scale } from 'lucide-react'
+import { X, Upload, Loader, Send, Scale } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
+import supabase from '../../lib/supabase'
 
 export default function RequestModal({ lawyer, onClose, onSuccess }) {
   const { user } = useAuth()
@@ -14,28 +15,47 @@ export default function RequestModal({ lawyer, onClose, onSuccess }) {
     if (!description.trim()) return toast.error('Please describe your legal issue')
     setLoading(true)
 
-    // Simulate network delay
-    setTimeout(() => {
-      const saved = JSON.parse(localStorage.getItem('ll_mock_requests') || '[]')
-      
-      const newRequest = {
-        id: Date.now(),
-        client_id: user?.id || 'demo-client',
-        lawyer_id: lawyer.user_id,
-        description: description.trim(),
-        file_url: file ? URL.createObjectURL(file) : null,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        lawyerInfo: { name: lawyer.name, speciality: lawyer.speciality }
+    try {
+      let evidence_url = null
+
+      if (file) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('evidence-files')
+          .upload(fileName, file)
+
+        if (uploadError) throw uploadError
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('evidence-files')
+          .getPublicUrl(fileName)
+        
+        evidence_url = publicUrl
       }
 
-      localStorage.setItem('ll_mock_requests', JSON.stringify([newRequest, ...saved]))
-      
-      setLoading(false)
-      toast.success('Request submitted (Saved to LocalStorage)!')
+      const { error } = await supabase
+        .from('consultations')
+        .insert([{
+          client_id: user.id,
+          lawyer_id: lawyer.id,
+          description: description.trim(),
+          evidence_url,
+          status: 'pending'
+        }])
+
+      if (error) throw error
+
+      toast.success('Consultation request submitted!')
       onSuccess?.()
       onClose()
-    }, 1000)
+    } catch (error) {
+      console.error('Error submitting request:', error.message)
+      toast.error('Failed to submit request: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -48,7 +68,7 @@ export default function RequestModal({ lawyer, onClose, onSuccess }) {
             </div>
             <div>
               <h2 className="font-semibold text-slate-900">Submit Request</h2>
-              <p className="text-xs text-slate-500">To {lawyer.name} · {lawyer.speciality}</p>
+              <p className="text-xs text-slate-500">To {lawyer.name} · {lawyer.specialty}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
@@ -72,7 +92,7 @@ export default function RequestModal({ lawyer, onClose, onSuccess }) {
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
-              Supporting Document <span className="text-slate-400">(optional)</span>
+              Supporting Document <span className="text-slate-400">(PDF/Image)</span>
             </label>
             <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:bg-slate-50 transition-all">
               <Upload size={20} className="mx-auto mb-2 text-slate-400" />

@@ -24,6 +24,7 @@
 
   body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased;
+    font-family: 'Outfit', sans-serif;
     font-feature-settings: 'cv11', 'ss01';
   }
 
@@ -105,6 +106,28 @@
 
   .page-enter {
     animation: slideUp 0.35s ease-out;
+  }
+
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   .nav-link {

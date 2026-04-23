@@ -4,28 +4,40 @@ import Navbar from '../components/layout/Navbar'
 import LawyerRequestCard from '../components/lawyer/LawyerRequestCard'
 import { RequestCardSkeleton } from '../components/ui/Skeletons'
 import { Inbox, Clock, CheckCircle, XCircle, Scale, Filter } from 'lucide-react'
-import { MOCK_REQUESTS } from '../lib/mockData'
+import supabase from '../lib/supabase'
 
 const FILTERS = ['all', 'pending', 'accepted', 'rejected']
 
 export default function LawyerDashboard() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
-    const saved = localStorage.getItem('ll_mock_requests')
-    const data = saved ? JSON.parse(saved) : MOCK_REQUESTS
-    
-    // In demo mode, show all requests for any lawyer
-    setRequests(data)
-    setLoading(false)
-  }, [])
+    fetchConsultations()
+  }, [user])
+
+  async function fetchConsultations() {
+    if (!user) return
+    try {
+      const { data, error } = await supabase
+        .from('consultations')
+        .select('*, profiles(full_name)')
+        .eq('lawyer_id', user.id)
+        .order('consultation_date', { ascending: false })
+      
+      if (error) throw error
+      setRequests(data || [])
+    } catch (error) {
+      console.error('Error fetching consultations:', error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleUpdate = () => {
-    const saved = localStorage.getItem('ll_mock_requests')
-    setRequests(JSON.parse(saved))
+    fetchConsultations()
   }
 
   const stats = {
@@ -45,20 +57,20 @@ export default function LawyerDashboard() {
         <div className="flex items-start justify-between mb-8 page-enter">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
-              {profile?.name || 'Lawyer'}'s Dashboard
+              {profile?.full_name || 'Lawyer'}'s Dashboard
             </h1>
             <p className="text-slate-500 mt-1">
-              Frontend-only demonstration dashboard
+              Avocat-Link Professional Portal
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2">
             <div className="flex items-center gap-2 bg-navy-800 text-white px-4 py-2 rounded-xl text-sm font-medium">
               <Scale size={15} />
-              {profile?.speciality || 'General Practice'}
+              {profile?.specialty || 'General Practice'}
             </div>
-            {profile?.years_of_experience && (
+            {profile?.experience_years && (
               <div className="bg-white border-2 border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">
-                {profile.years_of_experience} ans d'expérience
+                {profile.experience_years} ans d'expérience
               </div>
             )}
           </div>
@@ -105,11 +117,16 @@ export default function LawyerDashboard() {
 
           {loading ? (
             <RequestCardSkeleton />
-          ) : (
+          ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filtered.map(request => (
                 <LawyerRequestCard key={request.id} request={request} onUpdate={handleUpdate} />
               ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300">
+              <Inbox className="mx-auto text-slate-300 mb-3" size={40} />
+              <p className="text-slate-500">No consultation requests found.</p>
             </div>
           )}
         </div>

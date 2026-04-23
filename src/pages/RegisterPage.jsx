@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Mail, Lock, Scale, Eye, EyeOff, User, Briefcase, ArrowRight, Hash } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Scale, User, Briefcase } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'
+import supabase from '../lib/supabase'
 
 const SPECIALITIES = [
   'Criminal Law', 'Family Law', 'Corporate Law', 'Real Estate Law',
@@ -12,13 +13,13 @@ const SPECIALITIES = [
 
 export default function RegisterPage() {
   const { user, signUp } = useAuth()
+  const navigate = useNavigate()
   const [role, setRole] = useState('client')
   const [form, setForm] = useState({
     email: '', password: '', name: '',
-    lawyerSpecialId: '', speciality: 'General Practice',
-    yearsOfExperience: '',
+    specialty: 'General Practice',
+    experience_years: '',
   })
-  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
 
   function set(field) {
@@ -30,38 +31,64 @@ export default function RegisterPage() {
     
     // Case: User is already logged in but completing profile
     if (user) {
-        if (role === 'lawyer' && !form.lawyerSpecialId) return toast.error('Lawyer ID is required')
         if (role === 'lawyer' && !form.name) return toast.error('Full name is required')
         
         setLoading(true)
-        setTimeout(() => {
-            const newProfile = { 
-                id: user.id, 
-                email: user.email, 
-                role, 
-                name: form.name || user.email.split('@')[0],
-                speciality: form.speciality,
-                lawyer_special_id: form.lawyerSpecialId,
-                years_of_experience: form.yearsOfExperience
-            }
-            localStorage.setItem('ll_profile', JSON.stringify(newProfile))
-            window.location.reload() // Refresh to update context
-            setLoading(false)
-        }, 1000)
+        try {
+          const profileData = { 
+            id: user.id, 
+            role, 
+            full_name: form.name || user.email.split('@')[0],
+          }
+          
+          const { error } = await supabase
+            .from('profiles')
+            .upsert([profileData])
+
+          if (error) throw error
+
+          if (role === 'lawyer') {
+            const { error: lawyerError } = await supabase
+              .from('lawyers')
+              .insert([{
+                id: user.id, // Linking lawyer record to profile id
+                name: form.name,
+                specialty: form.specialty,
+                experience_years: parseInt(form.experience_years) || 0
+              }])
+            if (lawyerError) throw lawyerError
+          }
+
+          toast.success('Profile completed!')
+          navigate(role === 'lawyer' ? '/lawyer' : '/client')
+          window.location.reload()
+        } catch (err) {
+          toast.error(err.message)
+        } finally {
+          setLoading(false)
+        }
         return
     }
 
     // New signup
     if (!form.email || !form.password) return toast.error('Email and password are required')
     if (form.password.length < 6) return toast.error('Password must be at least 6 characters')
-    if (role === 'lawyer' && !form.lawyerSpecialId) return toast.error('Lawyer ID is required')
-    if (role === 'lawyer' && !form.name) return toast.error('Full name is required')
-    if (role === 'lawyer' && !form.yearsOfExperience) return toast.error('Years of experience is required')
 
     setLoading(true)
     try {
-      await signUp({ ...form, role })
-      toast.success('Account created! Sign-in successful.')
+      await signUp({ 
+        email: form.email, 
+        password: form.password, 
+        full_name: form.name || form.email.split('@')[0],
+        role 
+      })
+      
+      if (role === 'lawyer') {
+        // We might need to wait for user to be confirmed if email confirmation is on
+        // But assuming it's off or we use the data returned
+      }
+
+      toast.success('Account created!')
     } catch (err) {
       toast.error(err.message || 'Registration failed')
     } finally {
@@ -78,7 +105,7 @@ export default function RegisterPage() {
               <Scale size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="font-display font-bold text-navy-800 text-xl tracking-tight">LawyerLink</h1>
+              <h1 className="font-display font-bold text-navy-800 text-xl tracking-tight">Avocat-Link</h1>
             </div>
           </div>
 
@@ -101,23 +128,21 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <input type="text" value={form.name} onChange={set('name')} placeholder="Full Name" className="input-field" required />
+            
             {role === 'lawyer' && (
-              <>
-                <input type="text" value={form.name} onChange={set('name')} placeholder="Full Name" className="input-field" />
-                <div className="grid grid-cols-2 gap-3">
-                  <select value={form.speciality} onChange={set('speciality')} className="input-field">
-                    {SPECIALITIES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <input type="number" min="0" value={form.yearsOfExperience} onChange={set('yearsOfExperience')} placeholder="Years Exp." className="input-field" />
-                </div>
-                <input type="text" value={form.lawyerSpecialId} onChange={set('lawyerSpecialId')} placeholder="Lawyer ID / Bar Number" className="input-field" />
-              </>
+              <div className="grid grid-cols-2 gap-3">
+                <select value={form.specialty} onChange={set('specialty')} className="input-field">
+                  {SPECIALITIES.map(s => <option key={s}>{s}</option>)}
+                </select>
+                <input type="number" min="0" value={form.experience_years} onChange={set('experience_years')} placeholder="Years Exp." className="input-field" required />
+              </div>
             )}
 
             {!user && (
               <>
-                <input type="email" value={form.email} onChange={set('email')} placeholder="Email" className="input-field" />
-                <input type={showPw ? 'text' : 'password'} value={form.password} onChange={set('password')} placeholder="Password" className="input-field" />
+                <input type="email" value={form.email} onChange={set('email')} placeholder="Email" className="input-field" required />
+                <input type="password" value={form.password} onChange={set('password')} placeholder="Password" className="input-field" required />
               </>
             )}
 

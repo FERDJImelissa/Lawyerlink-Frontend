@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Search, Scale, Users, FileText, Clock, CheckCircle, XCircle, Plus } from 'lucide-react'
+import { Search, Users, FileText, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/layout/Navbar'
 import LawyerCard from '../components/client/LawyerCard'
 import RequestModal from '../components/client/RequestModal'
 import ClientRequestCard from '../components/client/ClientRequestCard'
 import { LawyerCardSkeleton, RequestCardSkeleton } from '../components/ui/Skeletons'
-import { MOCK_LAWYERS, MOCK_REQUESTS } from '../lib/mockData'
+import supabase from '../lib/supabase'
 
 const TABS = [
   { id: 'lawyers', label: 'Find a Lawyer', icon: Users },
-  { id: 'requests', label: 'My Requests', icon: FileText },
+  { id: 'requests', label: 'My Consultations', icon: FileText },
 ]
 
 export default function ClientDashboard() {
@@ -25,30 +25,48 @@ export default function ClientDashboard() {
   const [filterSpeciality, setFilterSpeciality] = useState('All')
 
   useEffect(() => {
-    // Simulate API fetch delay
-    setTimeout(() => {
-      setLawyers(MOCK_LAWYERS)
-      setLoadingLawyers(false)
-    }, 800)
-
-    const savedRequests = localStorage.getItem('ll_mock_requests')
-    if (savedRequests) {
-      setRequests(JSON.parse(savedRequests))
-      setLoadingRequests(false)
-    } else {
-      setTimeout(() => {
-        setRequests(MOCK_REQUESTS)
-        localStorage.setItem('ll_mock_requests', JSON.stringify(MOCK_REQUESTS))
-        setLoadingRequests(false)
-      }, 1000)
-    }
+    fetchLawyers()
+    fetchRequests()
   }, [])
 
-  const specialities = ['All', ...new Set(MOCK_LAWYERS.map(l => l.speciality))]
+  async function fetchLawyers() {
+    try {
+      const { data, error } = await supabase
+        .from('lawyers')
+        .select('*')
+      
+      if (error) throw error
+      setLawyers(data || [])
+    } catch (error) {
+      console.error('Error fetching lawyers:', error.message)
+    } finally {
+      setLoadingLawyers(false)
+    }
+  }
+
+  async function fetchRequests() {
+    if (!user) return
+    try {
+      const { data, error } = await supabase
+        .from('consultations')
+        .select('*, lawyers(*)')
+        .eq('client_id', user.id)
+        .order('consultation_date', { ascending: false })
+      
+      if (error) throw error
+      setRequests(data || [])
+    } catch (error) {
+      console.error('Error fetching requests:', error.message)
+    } finally {
+      setLoadingRequests(false)
+    }
+  }
+
+  const specialities = ['All', ...new Set(lawyers.map(l => l.specialty))]
 
   const filteredLawyers = lawyers.filter(l => {
     const matchSearch = l.name?.toLowerCase().includes(search.toLowerCase()) ||
-      l.speciality?.toLowerCase().includes(search.toLowerCase())
+      l.specialty?.toLowerCase().includes(search.toLowerCase())
     const matchSpec = filterSpeciality === 'All' || l.speciality === filterSpeciality
     return matchSearch && matchSpec
   })
@@ -69,12 +87,12 @@ export default function ClientDashboard() {
           <h1 className="text-2xl font-bold text-slate-900">
             Welcome back, <span className="text-navy-800">{user?.email?.split('@')[0]}</span> 👋
           </h1>
-          <p className="text-slate-500 mt-1">Standalone Frontend Demo — No Backend Required</p>
+          <p className="text-slate-500 mt-1">Avocat-Link Cloud Portal</p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Total Requests', value: stats.total, icon: FileText, color: 'text-indigo-600 bg-indigo-50' },
+            { label: 'Total Consultations', value: stats.total, icon: FileText, color: 'text-indigo-600 bg-indigo-50' },
             { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600 bg-amber-50' },
             { label: 'Accepted', value: stats.accepted, icon: CheckCircle, color: 'text-emerald-600 bg-emerald-50' },
             { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'text-red-600 bg-red-50' },
@@ -146,10 +164,15 @@ export default function ClientDashboard() {
           <div className="space-y-4 page-enter">
             {loadingRequests ? (
               Array.from({ length: 2 }).map((_, i) => <RequestCardSkeleton key={i} />)
-            ) : (
+            ) : requests.length > 0 ? (
               requests.map(request => (
                 <ClientRequestCard key={request.id} request={request} />
               ))
+            ) : (
+              <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300">
+                <FileText className="mx-auto text-slate-300 mb-3" size={40} />
+                <p className="text-slate-500">No consultations found yet.</p>
+              </div>
             )}
           </div>
         )}
@@ -160,8 +183,7 @@ export default function ClientDashboard() {
           lawyer={selectedLawyer}
           onClose={() => setSelectedLawyer(null)}
           onSuccess={() => { 
-            const updated = JSON.parse(localStorage.getItem('ll_mock_requests'))
-            setRequests(updated)
+            fetchRequests()
             setTab('requests') 
           }}
         />
